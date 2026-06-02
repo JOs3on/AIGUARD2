@@ -1,10 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { ArrowRight, CheckCircle2, Lock, Search, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, Info, Lock, Search, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { UseCase } from "@/data/usecases";
 import { getBestUseCase, searchUseCases } from "@/lib/search";
+import { RiskPyramidModal } from "./RiskPyramidModal";
 
 type SearchState = "idle" | "typing" | "searching" | "result";
 
@@ -15,21 +16,52 @@ const riskTone: Record<UseCase["riskLevel"], string> = {
   Prohibited: "from-rose-300 to-red-400 text-rose-950",
 };
 
+const riskCardStyle: Record<UseCase["riskLevel"], { bg: string; border: string; text: string; dot: string; label: string }> = {
+  Minimal: {
+    bg: "bg-emerald-50/70",
+    border: "border-emerald-100",
+    text: "text-emerald-950",
+    dot: "bg-emerald-500",
+    label: "Potential Minimal Risk",
+  },
+  Limited: {
+    bg: "bg-sky-50/60",
+    border: "border-sky-100",
+    text: "text-sky-950",
+    dot: "bg-sky-500",
+    label: "Potential Limited Risk",
+  },
+  High: {
+    bg: "bg-orange-50/60",
+    border: "border-orange-100",
+    text: "text-orange-950",
+    dot: "bg-orange-500",
+    label: "Potential High Risk",
+  },
+  Prohibited: {
+    bg: "bg-rose-50/70",
+    border: "border-rose-100",
+    text: "text-rose-950",
+    dot: "bg-rose-500",
+    label: "Potential Prohibited Risk",
+  },
+};
+
 const theme = {
   page: "bg-[#f7fbff] text-slate-950",
-  nav: "border-sky-100 bg-white/75",
+  nav: "border-slate-200 bg-white/75",
   muted: "text-slate-600",
   softMuted: "text-slate-500",
-  panel: "border-sky-100 bg-white/80 shadow-xl shadow-sky-100/70",
-  panelStrong: "border-sky-100 bg-white/95 shadow-2xl shadow-sky-100/80",
-  darkPanel: "border-sky-100 bg-white/90",
+  panel: "border-slate-200 bg-white/90 shadow-lg shadow-slate-200/45",
+  panelStrong: "border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50",
+  darkPanel: "border-slate-200 bg-slate-50/50",
   title: "text-slate-950",
-  chip: "border-sky-100 bg-white/80 text-sky-700 shadow-xl shadow-sky-100/70",
-  searchOuter: "border-sky-100 bg-white/75 shadow-2xl shadow-blue-100/80",
+  chip: "border-slate-200 bg-white/90 text-blue-700 shadow-lg shadow-slate-200/40",
+  searchOuter: "border-slate-200 bg-white/75 shadow-2xl shadow-blue-100/40",
   searchInner: "bg-white",
   input: "text-slate-950 placeholder:text-slate-400",
   primaryButton: "bg-blue-600 text-white hover:bg-blue-700",
-  secondaryButton: "border-sky-100 text-slate-700 hover:bg-sky-50 hover:text-slate-950",
+  secondaryButton: "border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-950",
   cardText: "text-slate-700",
   icon: "text-blue-600",
 };
@@ -39,6 +71,7 @@ export function AIGuardExperience() {
   const [state, setState] = useState<SearchState>("idle");
   const [selected, setSelected] = useState<UseCase | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showRiskPyramid, setShowRiskPyramid] = useState(false);
 
   const suggestions = useMemo(() => searchUseCases(query), [query]);
   const score = useMotionValue(0);
@@ -153,6 +186,7 @@ export function AIGuardExperience() {
                 roundedScore={roundedScore}
                 resetSearch={resetSearch}
                 openModal={() => setShowModal(true)}
+                openRiskPyramid={() => setShowRiskPyramid(true)}
               />
             )}
           </AnimatePresence>
@@ -160,6 +194,7 @@ export function AIGuardExperience() {
       </section>
 
       <AnimatePresence>{showModal && <AccessModal close={() => setShowModal(false)} />}</AnimatePresence>
+      <AnimatePresence>{showRiskPyramid && <RiskPyramidModal close={() => setShowRiskPyramid(false)} />}</AnimatePresence>
     </main>
   );
 }
@@ -216,7 +251,7 @@ function IdleCards({ suggestions }: { suggestions: UseCase[] }) {
           key={item.id}
           animate={{ y: [0, index % 2 ? 12 : -12, 0] }}
           transition={{ duration: 5 + index, repeat: Infinity, ease: "easeInOut" }}
-          className={`rounded-3xl border p-5 opacity-80 backdrop-blur-xl ${theme.panel}`}
+          className="rounded-3xl border border-slate-200 bg-white/95 p-5 opacity-90 shadow-lg shadow-slate-200/50 backdrop-blur-xl transition duration-300 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-100/30 hover:-translate-y-1"
         >
           <div className="mb-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-100/50">Example use case</div>
           <h3 className={`text-base font-semibold ${theme.title}`}>{item.title}</h3>
@@ -250,7 +285,7 @@ function TypingSuggestions({ suggestions, runSearch }: { suggestions: UseCase[];
             initial={{ opacity: 0, y: 12, filter: "blur(8px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             transition={{ delay: index * 0.06 }}
-            className={`group relative overflow-hidden rounded-3xl border p-4 text-left transition hover:border-blue-300 hover:bg-blue-50/50 ${theme.panel}`}
+            className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-4 text-left transition duration-300 hover:border-blue-300 hover:bg-blue-50/50 shadow-md shadow-slate-100/50 hover:shadow-lg hover:shadow-blue-100/20 hover:-translate-y-0.5"
           >
             <motion.div
               animate={{ x: ["-120%", "120%"] }}
@@ -308,11 +343,13 @@ function ResultView({
   roundedScore,
   resetSearch,
   openModal,
+  openRiskPyramid,
 }: {
   result: UseCase;
   roundedScore: ReturnType<typeof useTransform<number, number>>;
   resetSearch: () => void;
   openModal: () => void;
+  openRiskPyramid: () => void;
 }) {
   return (
     <motion.div
@@ -330,22 +367,48 @@ function ResultView({
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <div className={`rounded-[2rem] border p-6 backdrop-blur-2xl sm:p-8 ${theme.panel}`}>
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <span className={`rounded-full bg-gradient-to-r px-4 py-2 text-sm font-bold ${riskTone[result.riskLevel]}`}>
-              Likely {result.riskLevel} Risk
-            </span>
-            <span className={`rounded-full border border-sky-100/60 px-4 py-2 text-sm ${theme.muted}`}>EU AI Act classification preview</span>
-          </div>
-          <h2 className={`text-3xl font-semibold tracking-tight sm:text-5xl ${theme.title}`}>{result.title}</h2>
-          <p className={`mt-4 max-w-2xl text-lg leading-8 ${theme.cardText}`}>{result.summary}</p>
+          {/* Use Case Header */}
+          <h2 className={`text-3xl font-bold tracking-tight sm:text-5xl ${theme.title}`}>{result.title}</h2>
+          <p className={`mt-2.5 max-w-2xl text-base ${theme.softMuted}`}>{result.description}</p>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {result.indicators.map((indicator) => (
-              <div key={indicator} className={`rounded-2xl border p-4 text-sm ${theme.darkPanel}`}>
-                <CheckCircle2 className={`mb-3 h-4 w-4 ${theme.icon}`} />
-                <span className={theme.cardText}>{indicator}</span>
+          {/* Redesigned Premium Risk Card with "How risk levels work" button */}
+          <div className={`mt-6 rounded-2xl border p-5 sm:p-6 backdrop-blur-md relative ${riskCardStyle[result.riskLevel].bg} ${riskCardStyle[result.riskLevel].border} ${riskCardStyle[result.riskLevel].text}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className={`h-2.5 w-2.5 rounded-full ${riskCardStyle[result.riskLevel].dot}`} />
+                <span className="font-bold text-base tracking-tight">{riskCardStyle[result.riskLevel].label}</span>
               </div>
-            ))}
+              <Info className="h-5 w-5 text-slate-400 shrink-0" />
+            </div>
+            
+            <p className="mt-3 text-sm leading-relaxed opacity-95">
+              This use case is considered <strong className="font-semibold">{result.riskLevel} Risk</strong> under the EU AI Act.
+            </p>
+            
+            <button 
+              onClick={openRiskPyramid}
+              className="mt-3.5 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition cursor-pointer hover:underline"
+            >
+              How risk levels work
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-6 text-sm leading-relaxed text-slate-700">
+            <strong className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Risk Summary</strong>
+            <p className={theme.cardText}>{result.summary}</p>
+          </div>
+
+          <div className="mt-8">
+            <strong className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Key Indicators</strong>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {result.indicators.map((indicator) => (
+                <div key={indicator} className={`rounded-2xl border p-4 text-sm ${theme.darkPanel}`}>
+                  <CheckCircle2 className={`mb-3 h-4 w-4 ${theme.icon}`} />
+                  <span className={theme.cardText}>{indicator}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
