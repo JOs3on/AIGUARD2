@@ -1,19 +1,21 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { ArrowRight, CheckCircle2, Info, Lock, Search, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, Eye, Info, Lock, Search, Sparkles, Zap } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { UseCase } from "@/data/usecases";
 import { getBestUseCase, searchUseCases } from "@/lib/search";
 import { RiskPyramidModal } from "./RiskPyramidModal";
+import { Navigation } from "./Navigation";
+import { DashboardPreview } from "./dashboard/DashboardPreview";
 
 type SearchState = "idle" | "typing" | "searching" | "result";
 
-const riskTone: Record<UseCase["riskLevel"], string> = {
-  Minimal: "from-emerald-300 to-lime-300 text-emerald-950",
-  Limited: "from-sky-300 to-cyan-300 text-sky-950",
-  High: "from-amber-300 to-orange-300 text-amber-950",
-  Prohibited: "from-rose-300 to-red-400 text-rose-950",
+const riskBadgeStyle: Record<UseCase["riskLevel"], string> = {
+  Minimal: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  Limited: "bg-amber-100 text-amber-700 border-amber-200",
+  High: "bg-orange-100 text-orange-700 border-orange-200",
+  Prohibited: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
 const riskCardStyle: Record<UseCase["riskLevel"], { bg: string; border: string; text: string; dot: string; label: string }> = {
@@ -72,6 +74,7 @@ export function AIGuardExperience() {
   const [selected, setSelected] = useState<UseCase | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showRiskPyramid, setShowRiskPyramid] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const suggestions = useMemo(() => searchUseCases(query), [query]);
   const score = useMotionValue(0);
@@ -80,13 +83,13 @@ export function AIGuardExperience() {
 
   function updateQuery(value: string) {
     setQuery(value);
+    setHighlightedIndex(0);
     if (state !== "searching" && state !== "result") {
       setState(value.trim() ? "typing" : "idle");
     }
   }
 
-  function runSearch(event?: FormEvent, suggestion?: UseCase) {
-    event?.preventDefault();
+  function runSearch(suggestion?: UseCase) {
     const result = suggestion ?? getBestUseCase(query);
     setSelected(result);
     setState("searching");
@@ -109,13 +112,14 @@ export function AIGuardExperience() {
   return (
     <main className={`relative min-h-screen overflow-hidden ${theme.page}`}>
       <BackgroundAtmosphere />
-      <Navigation />
+      <Navigation variant="light" />
 
-      <section className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 pb-12 pt-28 sm:px-8 lg:px-10">
+      {/* ── Hero ── (fills viewport above the fold, dashboard sits just below) */}
+      <section className="relative z-10 mx-auto flex w-full max-w-7xl flex-col px-5 pb-16 pt-28 sm:px-8 lg:px-10 lg:min-h-[calc(100vh-7rem)]">
         <motion.div
           layout
           transition={{ type: "spring", stiffness: 90, damping: 18 }}
-          className={`mx-auto flex w-full max-w-5xl flex-1 flex-col items-center ${state === "result" ? "justify-start" : "justify-center"}`}
+          className={`mx-auto flex w-full max-w-5xl flex-col items-center`}
         >
           <AnimatePresence mode="popLayout">
             {state !== "result" && (
@@ -143,7 +147,10 @@ export function AIGuardExperience() {
 
           <motion.form
             layout
-            onSubmit={(event) => runSearch(event)}
+            onSubmit={(event) => {
+              event.preventDefault();
+              runSearch();
+            }}
             className={`relative w-full ${state === "result" ? "mt-2 max-w-3xl" : "max-w-4xl"}`}
           >
             <motion.div
@@ -161,6 +168,19 @@ export function AIGuardExperience() {
                 <input
                   value={query}
                   onChange={(event) => updateQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (state !== "typing" || suggestions.length === 0) return;
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
+                    } else if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setHighlightedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      runSearch(suggestions[highlightedIndex]);
+                    }
+                  }}
                   placeholder="Describe your AI system, e.g. AI tool for screening job applicants"
                   className={`h-12 flex-1 bg-transparent text-base outline-none sm:text-lg ${theme.input}`}
                 />
@@ -177,7 +197,15 @@ export function AIGuardExperience() {
 
           <AnimatePresence mode="wait">
             {state === "idle" && <IdleCards key="idle" suggestions={suggestions} />}
-            {state === "typing" && <TypingSuggestions key="typing" suggestions={suggestions} runSearch={runSearch} />}
+            {state === "typing" && (
+              <TypingSuggestions
+                key="typing"
+                suggestions={suggestions}
+                highlightedIndex={highlightedIndex}
+                setHighlightedIndex={setHighlightedIndex}
+                runSearch={runSearch}
+              />
+            )}
             {state === "searching" && <SearchProgress key="searching" result={activeResult} />}
             {state === "result" && activeResult && (
               <ResultView
@@ -193,30 +221,37 @@ export function AIGuardExperience() {
         </motion.div>
       </section>
 
+      {/* ── Sandboxed Dashboard Demo ── (preview, embed below the cards) */}
+      <section className="relative z-10 mx-auto w-full max-w-[1400px] px-5 pb-24 pt-2 sm:px-8">
+        {/* Heading animates in — preview itself stays untransformed so the
+            sidebar's mobile overlay uses position:fixed against the viewport. */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto mb-10 w-full max-w-3xl text-center"
+        >
+          <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50/80 px-4 py-2 text-sm font-semibold text-blue-700 backdrop-blur-sm">
+            <Eye className="h-4 w-4" />
+            Live Preview
+          </div>
+          <h2 className="text-balance text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl lg:text-5xl">
+            See the AIRISKS dashboard in action.
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            Click through the interactive demo. All data is mocked — explore
+            the overview, assessment schedule, and your AI use case portfolio
+            to get a feel for the full product.
+          </p>
+        </motion.div>
+
+        <DashboardPreview />
+      </section>
+
       <AnimatePresence>{showModal && <AccessModal close={() => setShowModal(false)} />}</AnimatePresence>
       <AnimatePresence>{showRiskPyramid && <RiskPyramidModal close={() => setShowRiskPyramid(false)} />}</AnimatePresence>
     </main>
-  );
-}
-
-function Navigation() {
-  return (
-    <header className={`fixed left-0 right-0 top-0 z-30 border-b backdrop-blur-2xl ${theme.nav}`}>
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-cyan-300 to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/20">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <span className={`text-lg font-semibold tracking-tight ${theme.title}`}>AIGUARD</span>
-        </div>
-        <div className={`hidden items-center gap-7 text-sm md:flex ${theme.muted}`}>
-          <a href="#" className="transition hover:text-blue-600">Product</a>
-          <a href="#" className="transition hover:text-blue-600">EU AI Act</a>
-          <a href="#" className="transition hover:text-blue-600">Use cases</a>
-          <a href="#" className={`rounded-full border px-4 py-2 transition ${theme.secondaryButton}`}>Check your use case</a>
-        </div>
-      </nav>
-    </header>
   );
 }
 
@@ -264,44 +299,81 @@ function IdleCards({ suggestions }: { suggestions: UseCase[] }) {
   );
 }
 
-function TypingSuggestions({ suggestions, runSearch }: { suggestions: UseCase[]; runSearch: (event?: FormEvent, suggestion?: UseCase) => void }) {
+function TypingSuggestions({ suggestions, highlightedIndex, setHighlightedIndex, runSearch }: { suggestions: UseCase[]; highlightedIndex: number; setHighlightedIndex: (index: number) => void; runSearch: (suggestion?: UseCase) => void }) {
+  if (suggestions.length === 0) return null;
+
+  const selected = suggestions[highlightedIndex];
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 22 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      className={`mt-6 w-full max-w-4xl rounded-[2rem] border p-3 backdrop-blur-2xl ${theme.panelStrong}`}
+      exit={{ opacity: 0, y: -12 }}
+      className="mt-3 w-full max-w-4xl"
+      role="listbox"
     >
-      <div className={`flex items-center gap-2 px-3 py-2 text-sm ${theme.muted}`}>
-        <Zap className={`h-4 w-4 ${theme.icon}`} />
-        Matching your use case to AI Act risk patterns
+      {/* Dropdown list */}
+      <div className={`overflow-hidden rounded-3xl border backdrop-blur-2xl ${theme.panelStrong}`}>
+        <div className={`flex items-center gap-2 border-b px-5 py-3 text-xs font-medium uppercase tracking-wider ${theme.muted}`}>
+          <Zap className={`h-3.5 w-3.5 ${theme.icon}`} />
+          Matching your use case to AI Act risk patterns
+        </div>
+        <div className="divide-y divide-slate-100">
+          {suggestions.map((item, index) => (
+            <motion.button
+              type="button"
+              onClick={() => runSearch(item)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              key={item.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: index * 0.04 }}
+              className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${
+                index === highlightedIndex
+                  ? "bg-blue-50/60"
+                  : "bg-white/60 hover:bg-slate-50/60"
+              }`}
+              role="option"
+              aria-selected={index === highlightedIndex}
+            >
+              <Search className={`h-4 w-4 shrink-0 ${theme.softMuted}`} />
+              <span className={`flex-1 text-sm font-medium ${theme.title}`}>{item.title}</span>
+              <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${riskBadgeStyle[item.riskLevel]}`}>
+                {item.riskLevel} risk
+              </span>
+            </motion.button>
+          ))}
+        </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {suggestions.map((item, index) => (
-          <motion.button
-            type="button"
-            onClick={() => runSearch(undefined, item)}
-            key={item.id}
-            initial={{ opacity: 0, y: 12, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={{ delay: index * 0.06 }}
-            className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-4 text-left transition duration-300 hover:border-blue-300 hover:bg-blue-50/50 shadow-md shadow-slate-100/50 hover:shadow-lg hover:shadow-blue-100/20 hover:-translate-y-0.5"
-          >
-            <motion.div
-              animate={{ x: ["-120%", "120%"] }}
-              transition={{ duration: 1.8, repeat: Infinity, delay: index * 0.2 }}
-              className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-blue-400/10 to-transparent"
-            />
-            <div className="relative flex items-start justify-between gap-4">
-              <div>
-                <h3 className={`font-semibold ${theme.title}`}>{item.title}</h3>
-                <p className={`mt-1 text-sm leading-5 ${theme.cardText}`}>{item.description}</p>
-              </div>
-              <span className={`rounded-full bg-gradient-to-r px-3 py-1 text-xs font-bold ${riskTone[item.riskLevel]}`}>{item.riskLevel}</span>
+
+      {/* Detail preview card */}
+      {selected && (
+        <motion.div
+          key={selected.id}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className={`mt-4 overflow-hidden rounded-3xl border p-6 backdrop-blur-2xl ${theme.panelStrong}`}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className={`text-lg font-semibold ${theme.title}`}>{selected.title}</h3>
+              <p className={`mt-1.5 max-w-xl text-sm leading-relaxed ${theme.cardText}`}>{selected.description}</p>
             </div>
-          </motion.button>
-        ))}
-      </div>
+            <span className={`rounded-full border px-3 py-1 text-xs font-bold ${riskBadgeStyle[selected.riskLevel]}`}>
+              {selected.riskLevel} risk
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => runSearch(selected)}
+            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+          >
+            View result
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

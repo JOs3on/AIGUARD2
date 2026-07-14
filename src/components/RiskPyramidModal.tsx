@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Info, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type RiskTierId = "Prohibited" | "High" | "Limited" | "Minimal";
 
@@ -11,13 +11,12 @@ interface RiskTier {
   name: string;
   label: string;
   color: string;
-  bgColor: string;
   textColor: string;
-  gradientId: string;
   path: string;
   textY: number;
   description: string;
-  obligations: string;
+  connectorX: number;
+  connectorY: number;
 }
 
 const Tiers: RiskTier[] = [
@@ -25,53 +24,53 @@ const Tiers: RiskTier[] = [
     id: "Prohibited",
     name: "Prohibited Risk",
     label: "BANNED",
-    color: "#f43f5e", // Bright Rose-500
-    bgColor: "bg-rose-50/40 hover:bg-rose-50/70 border-rose-100 hover:border-rose-300 shadow-rose-100/30",
-    textColor: "text-rose-950",
-    gradientId: "grad-prohibited",
+    color: "#f43f5e",
+    textColor: "text-rose-700",
     path: "M 160 15 L 195 75 L 125 75 Z",
     textY: 57,
-    description: "AI practices that are considered unacceptable and are banned under the EU AI Act.",
-    obligations: "Complete ban with very limited law enforcement exceptions.",
+    description:
+      "AI practices that are considered unacceptable and are banned under the EU AI Act.",
+    connectorX: 195,
+    connectorY: 45,
   },
   {
     id: "High",
     name: "High Risk",
     label: "HIGH RISK",
-    color: "#f97316", // Bright Orange-500
-    bgColor: "bg-orange-50/40 hover:bg-orange-50/70 border-orange-100 hover:border-orange-300 shadow-orange-100/30",
-    textColor: "text-orange-950",
-    gradientId: "grad-high",
+    color: "#f97316",
+    textColor: "text-orange-700",
     path: "M 120 85 L 200 85 L 235 135 L 85 135 Z",
     textY: 114,
-    description: "AI systems that can significantly impact health, safety or fundamental rights. Strict requirements apply.",
-    obligations: "Mandatory conformity assessments, logging, and human oversight.",
+    description:
+      "AI systems that can significantly impact health, safety or fundamental rights. Strict requirements apply.",
+    connectorX: 235,
+    connectorY: 110,
   },
   {
     id: "Limited",
     name: "Limited Risk",
     label: "LIMITED",
-    color: "#eab308", // Bright Yellow-500
-    bgColor: "bg-yellow-50/30 hover:bg-yellow-50/60 border-yellow-100 hover:border-yellow-300 shadow-yellow-100/30",
-    textColor: "text-yellow-950",
-    gradientId: "grad-limited",
+    color: "#eab308",
+    textColor: "text-yellow-700",
     path: "M 80 145 L 240 145 L 275 195 L 45 195 Z",
     textY: 174,
-    description: "AI systems with limited transparency obligations, such as informing users they are interacting with AI.",
-    obligations: "Disclosure requirement so users know they are interacting with AI.",
+    description:
+      "AI systems with limited transparency obligations, such as informing users they are interacting with AI.",
+    connectorX: 275,
+    connectorY: 170,
   },
   {
     id: "Minimal",
     name: "Minimal Risk",
     label: "MINIMAL",
-    color: "#10b981", // Bright Emerald-500
-    bgColor: "bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-100 hover:border-emerald-300 shadow-emerald-100/30",
-    textColor: "text-emerald-950",
-    gradientId: "grad-minimal",
+    color: "#10b981",
+    textColor: "text-emerald-700",
     path: "M 40 205 L 280 205 L 315 255 L 5 255 Z",
     textY: 234,
-    description: "AI systems with minimal or no risk. No specific obligations under the EU AI Act.",
-    obligations: "No regulatory obligations, but voluntary codes of conduct are welcomed.",
+    description:
+      "AI systems with minimal or no risk. No specific obligations under the EU AI Act.",
+    connectorX: 315,
+    connectorY: 230,
   },
 ];
 
@@ -80,23 +79,29 @@ interface RiskPyramidModalProps {
 }
 
 export function RiskPyramidModal({ close }: RiskPyramidModalProps) {
-  const [hoveredTier, setHoveredTier] = useState<RiskTierId | null>(null);
+  const [hoveredTier, setHoveredTier] = useState<RiskTierId>("Prohibited");
+  const closeRef = useRef(close);
 
-  // Close on Escape key
-  useState(() => {
+  useEffect(() => {
+    closeRef.current = close;
+  });
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") closeRef.current();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  }, []);
+
+  const activeTier = Tiers.find((t) => t.id === hoveredTier) ?? Tiers[0];
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 p-4 backdrop-blur-sm"
       onClick={close}
     >
       <motion.div
@@ -105,7 +110,7 @@ export function RiskPyramidModal({ close }: RiskPyramidModalProps) {
         exit={{ opacity: 0, y: 15, scale: 0.98 }}
         transition={{ type: "spring", stiffness: 380, damping: 32 }}
         onClick={(event) => event.stopPropagation()}
-        className="relative my-8 w-full max-w-4xl rounded-[2rem] border border-slate-100 bg-white/95 p-6 shadow-2xl shadow-slate-200/50 backdrop-blur-2xl sm:p-10"
+        className="relative my-8 w-full max-w-4xl rounded-[2rem] border border-slate-100 bg-white p-6 shadow-xl sm:p-10"
       >
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -113,8 +118,9 @@ export function RiskPyramidModal({ close }: RiskPyramidModalProps) {
             <h3 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
               How AI risk levels work
             </h3>
-            <p className="mt-1.5 text-xs sm:text-sm text-slate-500">
-              The EU AI Act classifies AI systems into four risk categories. Your obligations depend on the risk level.
+            <p className="mt-1.5 text-xs text-slate-500 sm:text-sm">
+              The EU AI Act classifies AI systems into four risk categories.
+              Your obligations depend on the risk level.
             </p>
           </div>
           <button
@@ -122,88 +128,214 @@ export function RiskPyramidModal({ close }: RiskPyramidModalProps) {
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-slate-50 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             aria-label="Close modal"
           >
-            <X className="h-4.5 w-4.5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Modal Content */}
-        <div className="mt-8 grid gap-8 md:grid-cols-[1.1fr_1.9fr] items-center">
-          {/* Pyramid Diagram Column */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="relative w-full max-w-[260px] sm:max-w-[290px] aspect-[320/260] select-none">
+        {/* Content */}
+        <div className="mt-8 grid grid-cols-1 items-center gap-4 md:grid-cols-[1.3fr_1fr]">
+          {/* Pyramid */}
+          <div
+            className="flex items-center justify-center"
+            onMouseLeave={() => setHoveredTier("Prohibited")}
+          >
+            <div className="relative aspect-[360/260] w-full max-w-[320px] select-none">
               <svg
-                viewBox="0 0 320 260"
-                className="w-full h-auto overflow-visible"
+                viewBox="0 0 360 260"
+                className="h-auto w-full overflow-visible"
               >
                 <defs>
-                  {/* Prohibited Sophisticated Gradient - 20% Brighter */}
-                  <linearGradient id="grad-prohibited" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#ff4d6d" stopOpacity="0.45" />
-                    <stop offset="100%" stopColor="#e11d48" stopOpacity="0.75" />
-                  </linearGradient>
-
-                  {/* High Sophisticated Gradient - 20% Brighter */}
-                  <linearGradient id="grad-high" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#ff8c3a" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#f97316" stopOpacity="0.7" />
-                  </linearGradient>
-
-                  {/* Limited Sophisticated Gradient - 20% Brighter */}
-                  <linearGradient id="grad-limited" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#fde047" stopOpacity="0.38" />
-                    <stop offset="100%" stopColor="#eab308" stopOpacity="0.68" />
-                  </linearGradient>
-
-                  {/* Minimal Sophisticated Gradient - 20% Brighter */}
-                  <linearGradient id="grad-minimal" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#34d399" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity="0.65" />
-                  </linearGradient>
+                  {/* Glow filters */}
+                  <filter
+                    id="glow-prohibited"
+                    x="-50%"
+                    y="-50%"
+                    width="200%"
+                    height="200%"
+                  >
+                    <feGaussianBlur
+                      in="SourceAlpha"
+                      stdDeviation="5"
+                      result="blur"
+                    />
+                    <feFlood
+                      floodColor="#f43f5e"
+                      floodOpacity="0.5"
+                      result="color"
+                    />
+                    <feComposite
+                      in="color"
+                      in2="blur"
+                      operator="in"
+                      result="shadow"
+                    />
+                    <feMerge>
+                      <feMergeNode in="shadow" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter
+                    id="glow-high"
+                    x="-50%"
+                    y="-50%"
+                    width="200%"
+                    height="200%"
+                  >
+                    <feGaussianBlur
+                      in="SourceAlpha"
+                      stdDeviation="5"
+                      result="blur"
+                    />
+                    <feFlood
+                      floodColor="#f97316"
+                      floodOpacity="0.5"
+                      result="color"
+                    />
+                    <feComposite
+                      in="color"
+                      in2="blur"
+                      operator="in"
+                      result="shadow"
+                    />
+                    <feMerge>
+                      <feMergeNode in="shadow" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter
+                    id="glow-limited"
+                    x="-50%"
+                    y="-50%"
+                    width="200%"
+                    height="200%"
+                  >
+                    <feGaussianBlur
+                      in="SourceAlpha"
+                      stdDeviation="5"
+                      result="blur"
+                    />
+                    <feFlood
+                      floodColor="#eab308"
+                      floodOpacity="0.5"
+                      result="color"
+                    />
+                    <feComposite
+                      in="color"
+                      in2="blur"
+                      operator="in"
+                      result="shadow"
+                    />
+                    <feMerge>
+                      <feMergeNode in="shadow" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter
+                    id="glow-minimal"
+                    x="-50%"
+                    y="-50%"
+                    width="200%"
+                    height="200%"
+                  >
+                    <feGaussianBlur
+                      in="SourceAlpha"
+                      stdDeviation="5"
+                      result="blur"
+                    />
+                    <feFlood
+                      floodColor="#10b981"
+                      floodOpacity="0.5"
+                      result="color"
+                    />
+                    <feComposite
+                      in="color"
+                      in2="blur"
+                      operator="in"
+                      result="shadow"
+                    />
+                    <feMerge>
+                      <feMergeNode in="shadow" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
                 </defs>
 
-                {/* SVG Pyramid Polygons */}
                 {Tiers.map((tier) => {
-                  const isHovered = hoveredTier === tier.id;
-                  const isAnyHovered = hoveredTier !== null;
-                  const opacity = isAnyHovered ? (isHovered ? 1.0 : 0.35) : 0.85;
-
+                  const isActive = hoveredTier === tier.id;
                   return (
                     <g key={tier.id}>
+                      {/* Tier shape */}
                       <motion.path
                         d={tier.path}
-                        fill={`url(#${tier.gradientId})`}
-                        stroke={tier.color}
-                        strokeWidth={isHovered ? "2.5" : "1.25"}
-                        strokeOpacity={isHovered ? "1.0" : "0.5"}
-                        className="cursor-pointer transition-all duration-300"
-                        initial={{
-                          opacity: 0.85,
-                          scale: 1,
-                          y: 0
-                        }}
+                        fill={tier.color}
+                        stroke="white"
+                        strokeWidth="2.5"
+                        strokeLinejoin="round"
+                        className="cursor-pointer"
+                        filter={
+                          isActive
+                            ? `url(#glow-${tier.id.toLowerCase()})`
+                            : undefined
+                        }
                         animate={{
-                          opacity: opacity,
-                          scale: isHovered ? 1.03 : 1,
-                          y: isHovered ? (tier.id === "Prohibited" ? -2 : tier.id === "High" ? -1 : tier.id === "Limited" ? 1 : 2) : 0,
+                          fillOpacity: isActive ? 0.95 : 0.45,
+                          scale: isActive ? 1.02 : 1,
                         }}
+                        transition={{ duration: 0.25 }}
                         style={{ transformOrigin: "160px 130px" }}
                         onMouseEnter={() => setHoveredTier(tier.id)}
-                        onMouseLeave={() => setHoveredTier(null)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${tier.name} tier`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setHoveredTier(tier.id);
+                          }
+                        }}
                       />
-                      {/* Embedded Text Label inside the Pyramid Tier */}
+
+                      {/* Label */}
                       <text
                         x="160"
                         y={tier.textY}
                         textAnchor="middle"
-                        className="fill-white font-bold text-[8.5px] sm:text-[9px] tracking-widest pointer-events-none select-none shadow-sm"
+                        dominantBaseline="middle"
+                        className="pointer-events-none select-none fill-white text-[9px] font-bold uppercase tracking-[0.15em]"
                         style={{
-                          opacity: isAnyHovered ? (isHovered ? 1.0 : 0.4) : 0.95,
-                          transition: "opacity 300ms ease",
-                          textShadow: "0px 1px 2px rgba(15, 23, 42, 0.4)"
+                          textShadow: "0 1px 3px rgba(0,0,0,0.3)",
                         }}
                       >
                         {tier.label}
                       </text>
+
+                      {/* Connector dot */}
+                      <motion.circle
+                        cx={tier.connectorX}
+                        cy={tier.connectorY}
+                        fill={tier.color}
+                        animate={{
+                          r: isActive ? 5 : 0,
+                          opacity: isActive ? 1 : 0,
+                        }}
+                        transition={{ duration: 0.15 }}
+                      />
+
+                      {/* Connector line */}
+                      <motion.line
+                        x1={tier.connectorX}
+                        y1={tier.connectorY}
+                        x2={tier.connectorX}
+                        y2={tier.connectorY}
+                        stroke={tier.color}
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        animate={{
+                          x2: isActive ? 360 : tier.connectorX,
+                          opacity: isActive ? 1 : 0,
+                        }}
+                        transition={{ duration: 0.3, delay: 0.05 }}
+                      />
                     </g>
                   );
                 })}
@@ -211,50 +343,53 @@ export function RiskPyramidModal({ close }: RiskPyramidModalProps) {
             </div>
           </div>
 
-          {/* Explanation Text Column */}
-          <div className="flex flex-col space-y-3">
-            {Tiers.map((tier) => {
-              const isHovered = hoveredTier === tier.id;
-              const isAnyHovered = hoveredTier !== null;
-              
-              // Apply border shadow matching color when hovered, standard soft shadow otherwise
-              const opacityClass = isAnyHovered 
-                ? (isHovered ? "opacity-100 border-slate-200/80 shadow-lg scale-[1.005]" : "opacity-45") 
-                : "opacity-100 shadow-md";
+          {/* Callout */}
+          <div className="flex items-center">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTier.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+                className="relative w-full rounded-2xl border border-slate-100 bg-white p-5 shadow-lg"
+                style={{ borderLeft: `4px solid ${activeTier.color}` }}
+              >
+                {/* Receiving dot */}
+                <span
+                  className="absolute -left-[6px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
+                  style={{ backgroundColor: activeTier.color }}
+                />
 
-              return (
-                <div
-                  key={`text-${tier.id}`}
-                  onMouseEnter={() => setHoveredTier(tier.id)}
-                  onMouseLeave={() => setHoveredTier(null)}
-                  className={`flex flex-col rounded-2xl border-l-[5px] border-y border-r p-4 transition-all duration-300 cursor-pointer ${tier.bgColor} ${opacityClass}`}
-                  style={{ borderLeftColor: tier.color }}
-                >
-                  <div className="flex items-center gap-2">
-                    <h4 className={`text-sm font-bold tracking-tight ${tier.textColor}`}>
-                      {tier.name}
-                    </h4>
-                  </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-                    {tier.description}
-                  </p>
-                  <div className="mt-2.5 border-t border-slate-100 pt-2 flex items-start gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mt-0.5">Obligations:</span>
-                    <p className="text-[11px] leading-relaxed text-slate-500 font-medium">
-                      {tier.obligations}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: activeTier.color }}
+                  />
+                  <h4
+                    className={`text-base font-bold tracking-tight ${activeTier.textColor}`}
+                  >
+                    {activeTier.name}
+                  </h4>
                 </div>
-              );
-            })}
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {activeTier.description}
+                </p>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* Footer info card */}
+        {/* Footer */}
         <div className="mt-8 flex items-start gap-2.5 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-slate-500">
-          <Info className="mt-0.5 h-4.5 w-4.5 shrink-0 text-slate-400" />
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
           <p className="text-xs leading-relaxed">
-            Risk classification depends on the <strong className="text-slate-700">purpose and specific use</strong> of the AI system, not the technology itself. Ensure your application is reviewed against full legislative criteria.
+            Risk classification depends on the{" "}
+            <strong className="text-slate-700">
+              purpose and specific use
+            </strong>{" "}
+            of the AI system, not the technology itself. Ensure your
+            application is reviewed against full legislative criteria.
           </p>
         </div>
       </motion.div>

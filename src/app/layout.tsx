@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AIGUARD | EU AI Act Clarity Search",
+  title: "AIRISKS | EU AI Act Clarity Search",
   description: "Search your AI use case and understand your preliminary EU AI Act risk.",
 };
 
